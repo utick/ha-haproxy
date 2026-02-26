@@ -1,0 +1,7 @@
+.gitignore
+*.pyc
+__pycache__/
+*.log
+.ha-venv/
+ha-docker/
+ha_config/

@@ -1,0 +1,10 @@
+{
+  "domain": "ha_haproxy",
+  "name": "HAProxy",
+  "codeowners": [],
+  "documentation": "https://www.home-assistant.io/integrations/ha_haproxy",
+  "iot_class": "config_polling",
+  "issue_tracker": "https://github.com/custom-components/ha_haproxy/issues",
+  "requirements": ["aiohttp"],
+  "version": "0.1.0"
+}
