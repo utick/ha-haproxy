@@ -1,6 +1,9 @@
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from ..const import (
     ATTR_ACTIVE_SESSIONS_NODES,
@@ -15,80 +18,90 @@ from ..const import (
 from ..coordinator import HAProxyCoordinator
 
 
-async def async_setup_platform(
+async def async_setup_entry(
     hass: HomeAssistant,
-    config: dict,
+    config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
-    discovery_info=None,
 ) -> None:
-    """Set up HAProxy sensors using YAML configuration."""
-    coordinators = hass.data.get(DOMAIN, {})
-    
-    for entry_id, coordinator in coordinators.items():
-        backend_name = config.get(CONF_BACKEND)
-        
-        entities = [
-            HAProxySensor(
-                coordinator=coordinator,
-                backend_name=backend_name,
-                description=SensorEntityDescription(
-                    key=ATTR_READY_NODES,
-                    name="Ready Nodes",
-                    icon="mdi:server",
-                    native_unit_of_measurement="nodes",
-                ),
+    coordinator: HAProxyCoordinator = hass.data[DOMAIN][config_entry.entry_id]
+    backend_name = config_entry.data.get(CONF_BACKEND)
+
+    entities = []
+
+    entities.append(
+        HAProxySensor(
+            coordinator=coordinator,
+            backend_name=backend_name,
+            description=SensorEntityDescription(
+                key=ATTR_READY_NODES,
+                name="Ready Nodes",
+                icon="mdi:server",
+                native_unit_of_measurement="nodes",
             ),
-            HAProxySensor(
-                coordinator=coordinator,
-                backend_name=backend_name,
-                description=SensorEntityDescription(
-                    key=ATTR_TOTAL_NODES,
-                    name="Total Nodes",
-                    icon="mdi:server-network",
-                    native_unit_of_measurement="nodes",
-                ),
+        )
+    )
+
+    entities.append(
+        HAProxySensor(
+            coordinator=coordinator,
+            backend_name=backend_name,
+            description=SensorEntityDescription(
+                key=ATTR_TOTAL_NODES,
+                name="Total Nodes",
+                icon="mdi:server-network",
+                native_unit_of_measurement="nodes",
             ),
-            HAProxySensor(
-                coordinator=coordinator,
-                backend_name=backend_name,
-                description=SensorEntityDescription(
-                    key=ATTR_ACTIVE_SESSIONS_NODES,
-                    name="Active Sessions Nodes",
-                    icon="mdi:account-multiple",
-                    native_unit_of_measurement="nodes",
-                ),
+        )
+    )
+
+    entities.append(
+        HAProxySensor(
+            coordinator=coordinator,
+            backend_name=backend_name,
+            description=SensorEntityDescription(
+                key=ATTR_ACTIVE_SESSIONS_NODES,
+                name="Active Sessions Nodes",
+                icon="mdi:account-multiple",
+                native_unit_of_measurement="nodes",
             ),
-            HAProxySensor(
-                coordinator=coordinator,
-                backend_name=backend_name,
-                description=SensorEntityDescription(
-                    key=ATTR_CURRENT_CONNECTIONS,
-                    name="Current Connections",
-                    icon="mdi:connection",
-                ),
+        )
+    )
+
+    entities.append(
+        HAProxySensor(
+            coordinator=coordinator,
+            backend_name=backend_name,
+            description=SensorEntityDescription(
+                key=ATTR_CURRENT_CONNECTIONS,
+                name="Current Connections",
+                icon="mdi:connection",
             ),
-            HAProxySensor(
-                coordinator=coordinator,
-                backend_name=backend_name,
-                description=SensorEntityDescription(
-                    key=ATTR_CURRENT_QUEUE,
-                    name="Current Queue",
-                    icon="mdi:queue-first",
-                ),
+        )
+    )
+
+    entities.append(
+        HAProxySensor(
+            coordinator=coordinator,
+            backend_name=backend_name,
+            description=SensorEntityDescription(
+                key=ATTR_CURRENT_QUEUE,
+                name="Current Queue",
+                icon="mdi:queue-first",
             ),
-        ]
-        
-        async_add_entities(entities)
+        )
+    )
+
+    async_add_entities(entities)
 
 
-class HAProxySensor(SensorEntity):
+class HAProxySensor(CoordinatorEntity, SensorEntity):
     def __init__(
         self,
         coordinator: HAProxyCoordinator,
         backend_name: str | None,
         description: SensorEntityDescription,
     ) -> None:
-        self.coordinator = coordinator
+        super().__init__(coordinator)
         self.backend_name = backend_name
         self.entity_description = description
         self._attr_unique_id = f"{coordinator.api.host}-{backend_name}-{description.key}"
@@ -128,7 +141,3 @@ class HAProxySensor(SensorEntity):
         if self.coordinator.data.backends:
             return self.coordinator.data.backends[0]
         return None
-    
-    def async_update(self):
-        """Update the entity."""
-        self.coordinator.async_request_refresh()

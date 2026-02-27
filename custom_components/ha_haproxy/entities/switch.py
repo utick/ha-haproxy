@@ -1,48 +1,48 @@
-from homeassistant.components.switch import SwitchEntity
+from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from ..const import CONF_BACKEND, DEVICE_INFO_DEFAULT, DOMAIN
 from ..coordinator import HAProxyCoordinator
 
 
-async def async_setup_platform(
+async def async_setup_entry(
     hass: HomeAssistant,
-    config: dict,
+    config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
-    discovery_info=None,
 ) -> None:
-    """Set up HAProxy switches using YAML configuration."""
-    coordinators = hass.data.get(DOMAIN, {})
-    
-    for entry_id, coordinator in coordinators.items():
-        backend_name = config.get(CONF_BACKEND)
-        
-        if coordinator.data:
-            backend = coordinator.get_backend(backend_name) if backend_name else (
-                coordinator.data.backends[0] if coordinator.data.backends else None
-            )
-            if backend:
-                entities = []
-                for server in backend.servers:
-                    entities.append(
-                        HAProxyServerSwitch(
-                            coordinator=coordinator,
-                            backend_name=backend.name,
-                            server_name=server.name,
-                        )
+    coordinator: HAProxyCoordinator = hass.data[DOMAIN][config_entry.entry_id]
+    backend_name = config_entry.data.get(CONF_BACKEND)
+
+    entities = []
+
+    if coordinator.data:
+        backend = coordinator.get_backend(backend_name) if backend_name else (
+            coordinator.data.backends[0] if coordinator.data.backends else None
+        )
+        if backend:
+            for server in backend.servers:
+                entities.append(
+                    HAProxyServerSwitch(
+                        coordinator=coordinator,
+                        backend_name=backend.name,
+                        server_name=server.name,
                     )
-                async_add_entities(entities)
+                )
+
+    async_add_entities(entities)
 
 
-class HAProxyServerSwitch(SwitchEntity):
+class HAProxyServerSwitch(CoordinatorEntity, SwitchEntity):
     def __init__(
         self,
         coordinator: HAProxyCoordinator,
         backend_name: str,
         server_name: str,
     ) -> None:
-        self.coordinator = coordinator
+        super().__init__(coordinator)
         self.backend_name = backend_name
         self.server_name = server_name
         self._attr_unique_id = f"{coordinator.api.host}-{backend_name}-{server_name}"
@@ -71,7 +71,3 @@ class HAProxyServerSwitch(SwitchEntity):
 
     async def async_turn_off(self) -> bool:
         return await self.coordinator.disable_server(self.backend_name, self.server_name)
-    
-    def async_update(self):
-        """Update the entity."""
-        self.coordinator.async_request_refresh()
